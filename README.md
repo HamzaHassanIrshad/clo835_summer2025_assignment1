@@ -40,4 +40,27 @@ export APP_COLOR=blue
 ### Run the application, make sure it is visible in the browser
 ```docker run -p 8080:8080  -e DBHOST=$DBHOST -e DBPORT=$DBPORT -e  DBUSER=$DBUSER -e DBPWD=$DBPWD  my_app```
 
-trigger actions
+## 🔧 Setting Up Terraform and SSH Key (Cloud9 / EC2)
+
+### Install Terraform on Amazon Linux
+```bash
+sudo yum install -y yum-utils shadow-utils
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+sudo yum -y install terraform
+```
+
+### Generate SSH Key Pair (for EC2 Access)
+```bash
+mkdir -p ~/.ssh
+cd ~/.ssh
+ssh-keygen -t rsa -b 2048 -f clo835-key
+chmod 400 clo835-key
+```
+
+### Import SSH Key to AWS
+```bash
+aws ec2 import-key-pair \
+  --key-name clo835-key \
+  --public-key-material fileb://clo835-key.pub \
+  --region us-east-1
+```
