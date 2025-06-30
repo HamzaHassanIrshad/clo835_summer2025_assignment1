@@ -3,8 +3,8 @@ variable "region" {
 }
 
 variable "instance_type" {
-  description = "EC2 instance type (use t3.medium or t3.large for better Docker performance)"
-  default = "t3.medium"
+  description = "EC2 instance type"
+  default = "t3.large"
 }
 
 variable "ami_id" {
