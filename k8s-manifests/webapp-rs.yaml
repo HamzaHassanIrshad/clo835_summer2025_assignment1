@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
         - name: webapp
-          image: <your_ecr_url>/webapp:latest
+          image: 626108377158.dkr.ecr.us-east-1.amazonaws.com/webapp:latest
           ports:
             - containerPort: 8080
