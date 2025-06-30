@@ -2,6 +2,10 @@ provider "aws" {
   region = var.region
 }
 
+data "aws_vpc" "default" {
+  default = true
+}
+
 resource "aws_security_group" "clo835_sg" {
   name        = "clo835-assignment2-sg"
   description = "Allow SSH, HTTP, and NodePort access"
@@ -22,6 +26,13 @@ resource "aws_security_group" "clo835_sg" {
   }
 
   ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
     from_port   = 30000
     to_port     = 30000
     protocol    = "tcp"
@@ -34,10 +45,6 @@ resource "aws_security_group" "clo835_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-}
-
-data "aws_vpc" "default" {
-  default = true
 }
 
 resource "aws_instance" "web" {
@@ -55,14 +62,17 @@ resource "aws_instance" "web" {
   user_data = <<-EOF
               #!/bin/bash
               yum update -y
-              yum install -y docker
+              yum install -y docker git
               service docker start
               usermod -a -G docker ec2-user
               systemctl enable docker
-              yum install -y git
               EOF
 
   tags = {
     Name = "clo835-assignment2"
   }
+}
+
+output "ec2_public_ip" {
+  value = aws_instance.web.public_ip
 }

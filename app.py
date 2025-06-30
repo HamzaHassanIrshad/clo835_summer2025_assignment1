@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, g
 from pymysql import connections
 import os
 import random
@@ -7,12 +7,14 @@ import argparse
 app = Flask(__name__)
 
 # Get DB config from environment or set defaults
-DBHOST = os.environ.get("DBHOST", "localhost")
-DBUSER = os.environ.get("DBUSER", "root")
-DBPWD = os.environ.get("DBPWD", "password")
-DATABASE = os.environ.get("DATABASE", "employees")
-DBPORT = int(os.environ.get("DBPORT", "3306"))
-COLOR_FROM_ENV = os.environ.get("APP_COLOR", "lime")
+def get_db_config():
+    return {
+        'host': os.environ.get("DBHOST", "localhost"),
+        'user': os.environ.get("DBUSER", "root"),
+        'password': os.environ.get("DBPWD", "password"),
+        'db': os.environ.get("DATABASE", "employees"),
+        'port': int(os.environ.get("DBPORT", "3306")),
+    }
 
 # Define supported color codes
 color_codes = {
@@ -24,34 +26,45 @@ color_codes = {
     "darkblue": "#130f40",
     "lime": "#C1FF9C",
 }
-SUPPORTED_COLORS = ",".join(color_codes.keys())
-COLOR = random.choice(list(color_codes.keys()))
+SUPPORTED_COLORS = list(color_codes.keys())
 
-# Connect to MySQL
-try:
-    db_conn = connections.Connection(
-        host=DBHOST,
-        port=DBPORT,
-        user=DBUSER,
-        password=DBPWD,
-        db=DATABASE
-    )
-except Exception as e:
-    print(f"❌ Failed to connect to MySQL: {e}")
-    db_conn = None
+def get_color():
+    # Priority: app config > ENV > random
+    color = app.config.get("COLOR_OVERRIDE")
+    if color:
+        return color
+    color_env = os.environ.get("APP_COLOR")
+    if color_env and color_env in color_codes:
+        return color_env
+    return random.choice(SUPPORTED_COLORS)
+
+@app.before_request
+def before_request():
+    g.db_conn = None
+    try:
+        g.db_conn = connections.Connection(**get_db_config())
+    except Exception as e:
+        g.db_conn = None
+        g.db_error = str(e)
+
+@app.teardown_request
+def teardown_request(exception):
+    db_conn = getattr(g, 'db_conn', None)
+    if db_conn:
+        db_conn.close()
 
 @app.route("/", methods=['GET', 'POST'])
 def home():
-    return render_template('addemp.html', color=color_codes[COLOR])
+    return render_template('addemp.html', color=color_codes[get_color()])
 
 @app.route("/about", methods=['GET','POST'])
 def about():
-    return render_template('about.html', color=color_codes[COLOR])
+    return render_template('about.html', color=color_codes[get_color()])
 
 @app.route("/addemp", methods=['POST'])
 def AddEmp():
-    if not db_conn:
-        return "Database connection failed.", 500
+    if not getattr(g, 'db_conn', None):
+        return render_template('error.html', message=f"Database connection failed: {getattr(g, 'db_error', 'Unknown error')}")
 
     emp_id = request.form['emp_id']
     first_name = request.form['first_name']
@@ -60,29 +73,29 @@ def AddEmp():
     location = request.form['location']
 
     insert_sql = "INSERT INTO employee VALUES (%s, %s, %s, %s, %s)"
-    cursor = db_conn.cursor()
+    cursor = g.db_conn.cursor()
 
     try:
         cursor.execute(insert_sql, (emp_id, first_name, last_name, primary_skill, location))
-        db_conn.commit()
+        g.db_conn.commit()
         emp_name = f"{first_name} {last_name}"
     finally:
         cursor.close()
 
-    return render_template('addempoutput.html', name=emp_name, color=color_codes[COLOR])
+    return render_template('addempoutput.html', name=emp_name, color=color_codes[get_color()])
 
 @app.route("/getemp", methods=['GET', 'POST'])
 def GetEmp():
-    return render_template("getemp.html", color=color_codes[COLOR])
+    return render_template("getemp.html", color=color_codes[get_color()])
 
 @app.route("/fetchdata", methods=['GET','POST'])
 def FetchData():
-    if not db_conn:
-        return "Database connection failed.", 500
+    if not getattr(g, 'db_conn', None):
+        return render_template('error.html', message=f"Database connection failed: {getattr(g, 'db_error', 'Unknown error')}")
 
     emp_id = request.form['emp_id']
     select_sql = "SELECT emp_id, first_name, last_name, primary_skill, location FROM employee WHERE emp_id=%s"
-    cursor = db_conn.cursor()
+    cursor = g.db_conn.cursor()
 
     output = {}
     try:
@@ -91,28 +104,23 @@ def FetchData():
         if result:
             output["emp_id"], output["first_name"], output["last_name"], output["primary_skills"], output["location"] = result
         else:
-            return "Employee not found.", 404
+            return render_template('error.html', message="Employee not found.")
     finally:
         cursor.close()
 
     return render_template("getempoutput.html", id=output["emp_id"], fname=output["first_name"],
                            lname=output["last_name"], interest=output["primary_skills"],
-                           location=output["location"], color=color_codes[COLOR])
+                           location=output["location"], color=color_codes[get_color()])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--color', required=False)
     args = parser.parse_args()
 
-    if args.color:
-        COLOR = args.color
-        if COLOR_FROM_ENV:
-            print(f"A color was set through environment variable ({COLOR_FROM_ENV}). Argument takes precedence.")
-    elif COLOR_FROM_ENV:
-        COLOR = COLOR_FROM_ENV
-
-    if COLOR not in color_codes:
-        print(f"Color '{COLOR}' not supported. Must be one of {SUPPORTED_COLORS}")
+    if args.color and args.color in color_codes:
+        app.config["COLOR_OVERRIDE"] = args.color
+    elif args.color:
+        print(f"Color '{args.color}' not supported. Must be one of {', '.join(SUPPORTED_COLORS)}")
         exit(1)
 
     app.run(host='0.0.0.0', port=8080, debug=True)
