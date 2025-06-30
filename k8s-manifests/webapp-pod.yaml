@@ -2,8 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: webapp
-  labels:
-    app: employees
 spec:
   replicas: 1
   selector:
@@ -14,8 +12,6 @@ spec:
       labels:
         app: employees
     spec:
-      imagePullSecrets:
-        - name: regcred
       containers:
         - name: webapp
           image: 626108377158.dkr.ecr.us-east-1.amazonaws.com/webapp:latest
@@ -34,13 +30,13 @@ spec:
               value: blue
           ports:
             - containerPort: 8080
+      imagePullSecrets:
+        - name: regcred
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: webapp-service
-  labels:
-    app: employees
 spec:
   type: NodePort
   selector:
