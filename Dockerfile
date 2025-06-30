@@ -3,23 +3,18 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 
-# Clean, update, fix dpkg, and install necessary packages
-RUN apt-get clean && \
-    apt-get update --fix-missing && \
-    apt-get install -y tzdata && \
-    apt-get install -y python3-pip default-mysql-client iputils-ping && \
-    dpkg --configure -a && \
-    apt-get clean
+# Install required packages
+RUN apt-get update --fix-missing && \
+    apt-get install -y tzdata python3-pip default-mysql-client iputils-ping && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy source code
-COPY . /app
+# Set workdir and copy app code
 WORKDIR /app
+COPY . .
 
 # Install Python dependencies
-RUN pip3 install --upgrade pip
-RUN pip3 install -r requirements.txt
+RUN pip3 install --upgrade pip && pip3 install -r requirements.txt
 
 EXPOSE 8080
 
-ENTRYPOINT ["python3"]
-CMD ["app.py"]
+CMD ["python3", "app.py"]

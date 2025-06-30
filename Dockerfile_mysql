@@ -1,5 +1,11 @@
+# Start from the official MySQL 8.0 image
 FROM mysql:8.0
 
-COPY ./mysql.sql /tmp
+# Set environment variables (override in Kubernetes if needed)
+ENV MYSQL_ROOT_PASSWORD=password \
+    MYSQL_DATABASE=employees
 
-CMD [ "mysqld", "--init-file=/tmp/mysql.sql" ]
+# Copy initialization SQL file into container
+COPY ./mysql.sql /docker-entrypoint-initdb.d/
+
+# No need to override CMD — official image will auto-run init scripts
