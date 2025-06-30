@@ -1,20 +1,13 @@
 FROM ubuntu:20.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
-
-# Install required packages
-RUN apt-get update --fix-missing && \
-    apt-get install -y tzdata python3-pip default-mysql-client iputils-ping && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Set workdir and copy app code
+RUN apt-get update -y
+COPY . /app
 WORKDIR /app
-COPY . .
-
-# Install Python dependencies
-RUN pip3 install --upgrade pip && pip3 install -r requirements.txt
-
+RUN set -xe \
+    && apt-get update -y \
+    && apt-get install -y python3-pip \
+    && apt-get install -y mysql-client 
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
 EXPOSE 8080
-
-CMD ["python3", "app.py"]
+ENTRYPOINT [ "python3" ]
+CMD [ "app.py" ]
