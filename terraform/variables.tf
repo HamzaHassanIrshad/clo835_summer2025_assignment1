@@ -19,5 +19,5 @@ variable "key_name" {
 
 variable "root_block_device_size" {
   description = "Root EBS volume size in GB"
-  default = 20
+  default = 50
 }

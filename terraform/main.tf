@@ -8,7 +8,7 @@ data "aws_vpc" "default" {
 
 resource "aws_security_group" "clo835_sg" {
   name        = "clo835-assignment2-sg"
-  description = "Allow SSH, HTTP, and NodePort access"
+  description = "Allow SSH, HTTP, HTTPS, and NodePort range access"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -34,7 +34,7 @@ resource "aws_security_group" "clo835_sg" {
 
   ingress {
     from_port   = 30000
-    to_port     = 30000
+    to_port     = 32767
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -53,6 +53,7 @@ resource "aws_instance" "web" {
   key_name                    = var.key_name
   associate_public_ip_address = true
   vpc_security_group_ids      = [aws_security_group.clo835_sg.id]
+  iam_instance_profile        = "LabInstanceProfile"
 
   root_block_device {
     volume_size = var.root_block_device_size
@@ -62,10 +63,11 @@ resource "aws_instance" "web" {
   user_data = <<-EOF
               #!/bin/bash
               yum update -y
-              yum install -y docker git
+              yum install -y docker git curl
               service docker start
-              usermod -a -G docker ec2-user
+              usermod -aG docker ec2-user
               systemctl enable docker
+              newgrp docker
               EOF
 
   tags = {
