@@ -4,7 +4,7 @@ metadata:
   name: mysql-secret
 type: Opaque
 data:
-  mysql-root-password: cGFzc3dvcmQ=  # base64 for "password"
+  mysql-root-password: cGFzc3dvcmQ=
 
 ---
 apiVersion: v1
@@ -51,10 +51,10 @@ spec:
               mountPath: /var/lib/mysql
           resources:
             requests:
-              memory: "1Gi"
-              cpu: "250m"
+              memory: "512Mi"
+              cpu: "500m"
             limits:
-              memory: "2Gi"
+              memory: "1.5Gi"
               cpu: "1"
       volumes:
         - name: mysql-storage
