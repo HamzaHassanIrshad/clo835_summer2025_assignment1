@@ -141,22 +141,23 @@ terraform --version
    cd clo835_summer2025_assignment1
    ```
 
-5. **Get ECR login token:**
+4. **Get ECR login token:**
    ```bash
    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
    ```
+   > **Note:** Do not append `/webapp` or `/mysql` at the end of the ECR URI. Use the repository URI exactly as provided by AWS ECR. This format is confirmed to work.
 
-6. **Build application image:**
+5. **Build application image:**
    ```bash
    docker build -t <ECR_REPO_URI>:latest .
    ```
 
-7. **Build database image:**
+6. **Build database image:**
    ```bash
    docker build -t <ECR_REPO_URI>:latest -f Dockerfile_mysql .
    ```
 
-8. **Push images to ECR:**
+7. **Push images to ECR:**
    ```bash
    docker push <ECR_REPO_URI>:latest
    docker push <ECR_REPO_URI>:latest
@@ -173,7 +174,7 @@ terraform --version
 
 2. **Install kubectl:**
    ```bash
-   curl -LO https://dl.k8s.io/release/v1.30.1/bin/linux/amd64/kubectl
+   curl -LO "https://dl.k8s.io/release/v1.30.1/bin/linux/amd64/kubectl"
    chmod +x kubectl
    sudo mv kubectl /usr/local/bin/kubectl
    kubectl version --client
@@ -187,7 +188,7 @@ terraform --version
    kind version
    ```
 
-5. **Create kind cluster:**
+4. **Create kind cluster:**
    ```bash
    # Create kind cluster configuration
    cat > kind-config.yaml << 'EOF'
@@ -212,13 +213,13 @@ terraform --version
    kubectl get nodes
    ```
 
-6. **Create namespaces:**
+5. **Create namespaces:**
    ```bash
    kubectl create namespace web
    kubectl create namespace db
    ```
 
-7. **Create ECR secrets:**
+6. **Create ECR secrets:**
    ```bash
    # Login to ECR
    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
