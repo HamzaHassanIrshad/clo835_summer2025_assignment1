@@ -35,9 +35,13 @@ jobs:
       - name: Build and Push App Image
         run: |
           docker build -t $ECR_REPO_APP:$IMAGE_TAG -f Dockerfile .
+          docker tag $ECR_REPO_APP:$IMAGE_TAG $ECR_REPO_APP:latest
           docker push $ECR_REPO_APP:$IMAGE_TAG
+          docker push $ECR_REPO_APP:latest
 
       - name: Build and Push MySQL Image
         run: |
           docker build -t $ECR_REPO_DB:$IMAGE_TAG -f Dockerfile_mysql .
+          docker tag $ECR_REPO_DB:$IMAGE_TAG $ECR_REPO_DB:latest
           docker push $ECR_REPO_DB:$IMAGE_TAG
+          docker push $ECR_REPO_DB:latest
