@@ -136,23 +136,28 @@ terraform --version
    cd clo835_summer2025_assignment1
    ```
 
-4. **Get ECR login token:**
+4. **Copy `mysql.sql` to the EC2 instance (from your local machine):**
+   ```bash
+   scp -i ~/.ssh/clo835-key mysql.sql ec2-user@<EC2_PUBLIC_IP>:~/
+   ```
+
+5. **Get ECR login token:**
    ```bash
    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
    ```
    > **Note:** Do not append `/webapp` or `/mysql` at the end of the ECR URI. Use the repository URI exactly as provided by AWS ECR.
 
-5. **Build application image:**
+6. **Build application image:**
    ```bash
    docker build -t <ECR_REPO_URI>:latest .
    ```
 
-6. **Build database image:**
+7. **Build database image:**
    ```bash
    docker build -t <ECR_REPO_URI>:latest -f Dockerfile_mysql .
    ```
 
-7. **Push images to ECR:**
+8. **Push images to ECR:**
    ```bash
    docker push <ECR_REPO_URI>:latest
    # Repeat for both images if using separate repos/tags
@@ -203,7 +208,13 @@ terraform --version
    kubectl create namespace db
    ```
 
-5. **Create ECR secrets:**
+5. **Create a ConfigMap for MySQL initialization:**
+   > This step makes your `mysql.sql` initialization script available to the MySQL pod in a portable, cloud-native way.
+   ```bash
+   kubectl create configmap mysql-initdb-config --from-file=mysql.sql=./mysql.sql -n db
+   ```
+
+6. **Create ECR secrets:**
    ```bash
    kubectl create secret docker-registry regcred \
      --docker-server=<ECR_REPO_URI> \
@@ -225,11 +236,12 @@ terraform --version
    scp -i ~/.ssh/clo835-key -r k8s-manifests ec2-user@<EC2_PUBLIC_IP>:~/
    ```
 
-2. **Deploy MySQL first:**
+2. **Deploy MySQL first (expects the ConfigMap to exist):**
    ```bash
    kubectl apply -f k8s-manifests/mysql-pod.yaml
    kubectl apply -f k8s-manifests/mysql-svc.yaml
    ```
+   > The MySQL pod manifest is configured to mount the `mysql-initdb-config` ConfigMap at `/docker-entrypoint-initdb.d`, so your `mysql.sql` will be executed automatically on first startup.
 
 3. **Deploy web application:**
    ```bash
