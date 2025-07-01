@@ -1,23 +1,29 @@
 variable "region" {
-  default = "us-east-1"
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
 }
 
 variable "instance_type" {
   description = "EC2 instance type"
-  default = "t3.large"
+  type        = string
+  default     = "t3.medium"
 }
 
 variable "ami_id" {
-  description = "Amazon Linux 2 AMI for us-east-1"
-  default     = "ami-0c101f26f147fa7fd"
+  description = "AMI ID for the EC2 instance (Amazon Linux 2023)"
+  type        = string
+  default     = "ami-0c02fb55956c7d316" # Amazon Linux 2023 in us-east-1
 }
 
 variable "key_name" {
-  description = "Name of the SSH key pair to use for the instance"
-  default = "clo835-key"
+  description = "Name of the SSH key pair"
+  type        = string
+  default     = "clo835-key"
 }
 
 variable "root_block_device_size" {
-  description = "Root EBS volume size in GB"
-  default = 50
+  description = "Size of the root block device in GB"
+  type        = number
+  default     = 20
 }
