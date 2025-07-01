@@ -1,7 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webapp-deployment
+  name: web-app-deployment
+  namespace: web
 spec:
   replicas: 3
   selector:
@@ -13,7 +14,36 @@ spec:
         app: employees
     spec:
       containers:
-        - name: webapp
+        - name: web-app
           image: 626108377158.dkr.ecr.us-east-1.amazonaws.com/webapp:latest
+          imagePullPolicy: Always
+          env:
+            - name: DBHOST
+              value: mysql-service.db.svc.cluster.local
+            - name: DBPORT
+              value: "3306"
+            - name: DBUSER
+              value: root
+            - name: DBPWD
+              value: pass@1234
+            - name: DATABASE
+              value: employees
+            - name: APP_COLOR
+              value: blue
           ports:
             - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      imagePullSecrets:
+        - name: regcred
