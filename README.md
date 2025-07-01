@@ -38,6 +38,55 @@ This project demonstrates the deployment of a containerized Flask application wi
 - Docker installed (for local development)
 - SSH key pair for EC2 access
 
+### Installing Terraform on Amazon Linux
+
+If you're working on an Amazon Linux EC2 instance or Cloud9 environment, install Terraform using these commands:
+
+```bash
+# Install yum-utils and shadow-utils (required for HashiCorp repository)
+sudo yum install -y yum-utils shadow-utils
+
+# Add HashiCorp repository
+sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+
+# Install Terraform
+sudo yum -y install terraform
+
+# Verify installation
+terraform --version
+```
+
+### Installing Terraform on Other Linux Distributions
+
+For Ubuntu/Debian:
+```bash
+# Install required packages
+sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
+
+# Add HashiCorp GPG key
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+# Add HashiCorp repository
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+# Install Terraform
+sudo apt-get update && sudo apt-get install terraform
+
+# Verify installation
+terraform --version
+```
+
+For macOS (using Homebrew):
+```bash
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
+terraform --version
+```
+
+For Windows:
+- Download the latest Terraform binary from [terraform.io](https://www.terraform.io/downloads.html)
+- Extract and add to your PATH, or use Chocolatey: `choco install terraform`
+
 ## Step-by-Step Deployment Guide
 
 ### Step 1: Prepare Your Environment
