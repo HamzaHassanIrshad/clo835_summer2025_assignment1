@@ -52,14 +52,6 @@ resource "aws_security_group" "clo835_sg" {
   }
 
   ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTPS"
-  }
-
-  ingress {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
@@ -105,12 +97,11 @@ resource "aws_instance" "k8s_cluster" {
   user_data = <<-EOF
               #!/bin/bash
               yum update -y
-              yum install -y docker git curl wget
-              
-              # Start and enable Docker
-              systemctl start docker
+              yum install -y docker
+              service docker start
+              usermod -a -G docker ec2-user
               systemctl enable docker
-              usermod -aG docker ec2-user
+              yum install -y git
               EOF
 
   tags = {

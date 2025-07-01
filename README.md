@@ -58,37 +58,6 @@ sudo yum -y install terraform
 terraform --version
 ```
 
-### Installing Terraform on Other Linux Distributions
-
-For Ubuntu/Debian:
-```bash
-# Install required packages
-sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
-
-# Add HashiCorp GPG key
-wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-
-# Add HashiCorp repository
-echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-
-# Install Terraform
-sudo apt-get update && sudo apt-get install terraform
-
-# Verify installation
-terraform --version
-```
-
-For macOS (using Homebrew):
-```bash
-brew tap hashicorp/tap
-brew install hashicorp/tap/terraform
-terraform --version
-```
-
-For Windows:
-- Download the latest Terraform binary from [terraform.io](https://www.terraform.io/downloads.html)
-- Extract and add to your PATH, or use Chocolatey: `choco install terraform`
-
 ## Step-by-Step Deployment Guide
 
 ### Step 1: Prepare Your Environment
@@ -172,12 +141,6 @@ For Windows:
    cd clo835_summer2025_assignment1
    ```
 
-4. **Configure AWS CLI on EC2:**
-   ```bash
-   aws configure
-   # Enter your AWS Access Key ID, Secret Access Key, Default region (us-east-1), and Default output format (json)
-   ```
-
 5. **Get ECR login token:**
    ```bash
    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
@@ -210,26 +173,18 @@ For Windows:
 
 2. **Install kubectl:**
    ```bash
-   curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+   curl -LO https://dl.k8s.io/release/v1.30.1/bin/linux/amd64/kubectl
    chmod +x kubectl
-   sudo mv kubectl /usr/local/bin/
+   sudo mv kubectl /usr/local/bin/kubectl
    kubectl version --client
    ```
 
 3. **Install kind:**
    ```bash
-   curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+   curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.29.0/kind-linux-amd64
    chmod +x ./kind
-   sudo mv ./kind /usr/local/bin/
+   sudo mv ./kind /usr/local/bin/kind
    kind version
-   ```
-
-4. **Install AWS CLI v2 (if not already installed):**
-   ```bash
-   curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-   unzip awscliv2.zip
-   sudo ./aws/install
-   aws --version
    ```
 
 5. **Create kind cluster:**
