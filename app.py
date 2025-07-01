@@ -12,17 +12,23 @@ DBUSER = os.environ.get("DBUSER") or "root"
 DBPWD = os.environ.get("DBPWD") or "passwors"
 DATABASE = os.environ.get("DATABASE") or "employees"
 COLOR_FROM_ENV = os.environ.get('APP_COLOR') or "lime"
-DBPORT = int(os.environ.get("DBPORT"))
+DBPORT = int(os.environ.get("DBPORT", "3306"))
 
 # Create a connection to the MySQL database
-db_conn = connections.Connection(
-    host= DBHOST,
-    port=DBPORT,
-    user= DBUSER,
-    password= DBPWD, 
-    db= DATABASE
-    
-)
+try:
+    db_conn = connections.Connection(
+        host= DBHOST,
+        port=DBPORT,
+        user= DBUSER,
+        password= DBPWD, 
+        db= DATABASE
+        
+    )
+    print(f"Database connection established to {DBHOST}:{DBPORT}")
+except Exception as e:
+    print(f"Failed to connect to database: {e}")
+    db_conn = None
+
 output = {}
 table = 'employee';
 
@@ -55,6 +61,9 @@ def about():
     
 @app.route("/addemp", methods=['POST'])
 def AddEmp():
+    if not db_conn:
+        return "Database connection not available", 500
+        
     emp_id = request.form['emp_id']
     first_name = request.form['first_name']
     last_name = request.form['last_name']
@@ -71,6 +80,9 @@ def AddEmp():
         db_conn.commit()
         emp_name = "" + first_name + " " + last_name
 
+    except Exception as e:
+        print(f"Error inserting employee: {e}")
+        return f"Error: {e}", 500
     finally:
         cursor.close()
 
@@ -84,6 +96,9 @@ def GetEmp():
 
 @app.route("/fetchdata", methods=['GET','POST'])
 def FetchData():
+    if not db_conn:
+        return "Database connection not available", 500
+        
     emp_id = request.form['emp_id']
 
     output = {}
@@ -94,6 +109,9 @@ def FetchData():
         cursor.execute(select_sql,(emp_id))
         result = cursor.fetchone()
         
+        if result is None:
+            return "Employee not found", 404
+            
         # Add No Employee found form
         output["emp_id"] = result[0]
         output["first_name"] = result[1]
@@ -103,6 +121,7 @@ def FetchData():
         
     except Exception as e:
         print(e)
+        return f"Error: {e}", 500
 
     finally:
         cursor.close()

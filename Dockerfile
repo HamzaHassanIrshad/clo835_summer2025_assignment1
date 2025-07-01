@@ -1,25 +1,28 @@
-FROM ubuntu:20.04
+FROM python:3.9-slim
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
-
-# Clean, update, fix dpkg, and install necessary packages
-RUN apt-get clean && \
-    apt-get update --fix-missing && \
-    apt-get install -y tzdata && \
-    apt-get install -y python3-pip default-mysql-client iputils-ping && \
-    dpkg --configure -a && \
-    apt-get clean
-
-# Copy source code
-COPY . /app
+# Set working directory
 WORKDIR /app
 
-# Install Python dependencies
-RUN pip3 install --upgrade pip
-RUN pip3 install -r requirements.txt
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    default-mysql-client \
+    && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Expose port
 EXPOSE 8080
 
-ENTRYPOINT ["python3"]
-CMD ["app.py"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/ || exit 1
+
+# Run the application
+CMD ["python3", "app.py"]

@@ -31,10 +31,10 @@ jobs:
 
       - name: Build and Push App Image
         run: |
-          docker build -t $ECR_REPO_APP -f Dockerfile .
-          docker push $ECR_REPO_APP
+          docker build -t $ECR_REPO_APP:latest -f Dockerfile .
+          docker push $ECR_REPO_APP:latest
 
       - name: Build and Push MySQL Image
         run: |
-          docker build -t $ECR_REPO_DB -f Dockerfile_mysql .
-          docker push $ECR_REPO_DB
+          docker build -t $ECR_REPO_DB:latest -f Dockerfile_mysql .
+          docker push $ECR_REPO_DB:latest
