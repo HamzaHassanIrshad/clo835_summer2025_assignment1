@@ -139,54 +139,113 @@ For Windows:
 
 ### Step 3: Build and Push Docker Images
 
-1. **Get the ECR URLs first:**
+1. **Get ECR login token:**
    ```bash
-   cd terraform
-   APP_REPO=$(terraform output -raw app_ecr_repository_url)
-   DB_REPO=$(terraform output -raw db_ecr_repository_url)
-   cd ..
+   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
    ```
 
-2. **Get ECR login token:**
+2. **Build application image (from root directory):**
    ```bash
-   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $APP_REPO
+   docker build -t <ECR_REPO_URI>:latest .
    ```
 
-3. **Build application image (from root directory):**
+3. **Build database image (from root directory):**
    ```bash
-   docker build -t $APP_REPO:latest .
+   docker build -t <ECR_REPO_URI>:latest -f Dockerfile_mysql .
    ```
 
-4. **Build database image (from root directory):**
+4. **Push images to ECR:**
    ```bash
-   docker build -t $DB_REPO:latest -f Dockerfile_mysql .
+   docker push <ECR_REPO_URI>:latest
+   docker push <ECR_REPO_URI>:latest
    ```
 
-5. **Push images to ECR:**
-   ```bash
-   docker push $APP_REPO:latest
-   docker push $DB_REPO:latest
-   ```
-
-### Step 4: Connect to EC2 Instance
+### Step 4: Connect to EC2 Instance and Install Required Tools
 
 1. **SSH into the instance:**
    ```bash
-   ssh -i ~/.ssh/clo835-key ec2-user@$(terraform output -raw instance_public_ip)
+   ssh -i ~/.ssh/clo835-key ec2-user@<EC2_PUBLIC_IP>
    ```
 
-2. **Verify cluster is running:**
+2. **Install kubectl:**
    ```bash
+   curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+   chmod +x kubectl
+   sudo mv kubectl /usr/local/bin/
+   kubectl version --client
+   ```
+
+3. **Install kind:**
+   ```bash
+   curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+   chmod +x ./kind
+   sudo mv ./kind /usr/local/bin/
+   kind version
+   ```
+
+4. **Install AWS CLI v2 (if not already installed):**
+   ```bash
+   curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+   unzip awscliv2.zip
+   sudo ./aws/install
+   aws --version
+   ```
+
+5. **Create kind cluster:**
+   ```bash
+   # Create kind cluster configuration
+   cat > kind-config.yaml << 'EOF'
+   kind: Cluster
+   apiVersion: kind.x-k8s.io/v1alpha4
+   nodes:
+   - role: control-plane
+     extraPortMappings:
+     - containerPort: 30000
+       hostPort: 30000
+       protocol: TCP
+   EOF
+   
+   # Create kind cluster
+   kind create cluster --name clo835-cluster --config kind-config.yaml
+   
+   # Configure kubectl
+   kind export kubeconfig --name clo835-cluster
+   
+   # Verify cluster is running
    kubectl cluster-info
    kubectl get nodes
    ```
 
-### Step 5: Deploy Applications to Kubernetes
-
-1. **Create namespaces (if not already created):**
+6. **Create namespaces:**
    ```bash
    kubectl create namespace web
    kubectl create namespace db
+   ```
+
+7. **Create ECR secrets:**
+   ```bash
+   # Login to ECR
+   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
+   
+   # Create secrets for both namespaces
+   kubectl create secret docker-registry regcred \
+     --docker-server=<ECR_REPO_URI> \
+     --docker-username=AWS \
+     --docker-password=$(aws ecr get-login-password --region us-east-1) \
+     --namespace=web
+   
+   kubectl create secret docker-registry regcred \
+     --docker-server=<ECR_REPO_URI> \
+     --docker-username=AWS \
+     --docker-password=$(aws ecr get-login-password --region us-east-1) \
+     --namespace=db
+   ```
+
+### Step 5: Deploy Applications to Kubernetes
+
+1. **Copy manifests to EC2 instance (from your local machine):**
+   ```bash
+   scp -i ~/.ssh/clo835-key -r k8s-manifests ec2-user@<EC2_PUBLIC_IP>:~/
    ```
 
 2. **Deploy MySQL first:**

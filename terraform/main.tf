@@ -111,63 +111,6 @@ resource "aws_instance" "k8s_cluster" {
               systemctl start docker
               systemctl enable docker
               usermod -aG docker ec2-user
-              
-              # Install kubectl
-              curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-              chmod +x kubectl
-              mv kubectl /usr/local/bin/
-              
-              # Install kind
-              curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-              chmod +x ./kind
-              mv ./kind /usr/local/bin/
-              
-              # Install AWS CLI v2
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-              unzip awscliv2.zip
-              ./aws/install
-              
-              # Configure AWS CLI
-              aws configure set default.region ${var.region}
-              
-              # Create kind cluster configuration
-              cat > kind-config.yaml << 'KINDEOF'
-              kind: Cluster
-              apiVersion: kind.x-k8s.io/v1alpha4
-              nodes:
-              - role: control-plane
-                extraPortMappings:
-                - containerPort: 30000
-                  hostPort: 30000
-                  protocol: TCP
-              KINDEOF
-              
-              # Create kind cluster
-              kind create cluster --name clo835-cluster --config kind-config.yaml
-              
-              # Configure kubectl
-              kind export kubeconfig --name clo835-cluster
-              
-              # Create namespaces
-              kubectl create namespace web
-              kubectl create namespace db
-              
-              # Get ECR login token and create secret
-              aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.app.repository_url}
-              aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${aws_ecr_repository.db.repository_url}
-              
-              # Create ECR secret
-              kubectl create secret docker-registry regcred \
-                --docker-server=${aws_ecr_repository.app.repository_url} \
-                --docker-username=AWS \
-                --docker-password=$(aws ecr get-login-password --region ${var.region}) \
-                --namespace=web
-              
-              kubectl create secret docker-registry regcred \
-                --docker-server=${aws_ecr_repository.db.repository_url} \
-                --docker-username=AWS \
-                --docker-password=$(aws ecr get-login-password --region ${var.region}) \
-                --namespace=db
               EOF
 
   tags = {
