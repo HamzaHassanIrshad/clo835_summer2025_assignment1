@@ -108,16 +108,145 @@ terraform --version
    terraform output
    ```
 
-### Step 3: Automated Build and Push to ECR (CI/CD)
+### Step 3: Connect to EC2 Instance and Build/Push Docker Images
 
-After the EC2 instance is created, **you do not need to manually build or push Docker images**. Any change pushed to the `main` branch automatically triggers the GitHub Actions CI/CD pipeline, which:
-- Builds the application and database Docker images
-- Tags them appropriately
-- Pushes them to the respective Amazon ECR repositories
+1. **SSH into the EC2 instance:**
+   ```bash
+   ssh -i ~/.ssh/clo835-key ec2-user@<EC2_PUBLIC_IP>
+   ```
 
-This process is fully automated. You only need to ensure your code is pushed to the `main` branch. No manual Docker build or push commands are required.
+2. **Install Docker on EC2 (if not already installed):**
+   ```bash
+   # Update system
+   sudo yum update -y
+   
+   # Install Docker
+   sudo yum install -y docker
+   sudo systemctl start docker
+   sudo systemctl enable docker
+   sudo usermod -a -G docker ec2-user
+   
+   # Log out and back in for group changes to take effect
+   exit
+   ```
+   
+   **Reconnect to EC2:**
+   ```bash
+   ssh -i ~/.ssh/clo835-key ec2-user@<EC2_PUBLIC_IP>
+   ```
 
-### Step 4: Deploy Applications to Kubernetes
+3. **Clone the repository on EC2:**
+   ```bash
+   git clone https://github.com/HamzaHassanIrshad/clo835_summer2025_assignment1.git
+   cd clo835_summer2025_assignment1
+   ```
+
+5. **Get ECR login token:**
+4. **Get ECR login token:**
+   ```bash
+   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
+   ```
+   > **Note:** Do not append `/webapp` or `/mysql` at the end of the ECR URI. Use the repository URI exactly as provided by AWS ECR. This format is confirmed to work.
+
+6. **Build application image:**
+5. **Build application image:**
+   ```bash
+   docker build -t <ECR_REPO_URI>:latest .
+   ```
+
+7. **Build database image:**
+6. **Build database image:**
+   ```bash
+   docker build -t <ECR_REPO_URI>:latest -f Dockerfile_mysql .
+   ```
+
+8. **Push images to ECR:**
+7. **Push images to ECR:**
+   ```bash
+   docker push <ECR_REPO_URI>:latest
+   docker push <ECR_REPO_URI>:latest
+   ```
+
+**Note:** The Dockerfile automatically installs all Python dependencies from `requirements.txt` during the image build process, so no manual installation is required.
+
+### Step 4: Install Kubernetes Tools on EC2 Instance
+
+1. **SSH into the instance (if not already connected):**
+   ```bash
+   ssh -i ~/.ssh/clo835-key ec2-user@<EC2_PUBLIC_IP>
+   ```
+
+2. **Install kubectl:**
+   ```bash
+   curl -LO https://dl.k8s.io/release/v1.30.1/bin/linux/amd64/kubectl
+   curl -LO "https://dl.k8s.io/release/v1.30.1/bin/linux/amd64/kubectl"
+   chmod +x kubectl
+   sudo mv kubectl /usr/local/bin/kubectl
+   kubectl version --client
+   ```
+
+3. **Install kind:**
+   ```bash
+   curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.29.0/kind-linux-amd64
+   chmod +x ./kind
+   sudo mv ./kind /usr/local/bin/kind
+   kind version
+   ```
+
+5. **Create kind cluster:**
+4. **Create kind cluster:**
+   ```bash
+   # Create kind cluster configuration
+   cat > kind-config.yaml << 'EOF'
+   kind: Cluster
+   apiVersion: kind.x-k8s.io/v1alpha4
+   nodes:
+   - role: control-plane
+     extraPortMappings:
+     - containerPort: 30000
+       hostPort: 30000
+       protocol: TCP
+   EOF
+   
+   # Create kind cluster
+   kind create cluster --name clo835-cluster --config kind-config.yaml
+   
+   # Configure kubectl
+   kind export kubeconfig --name clo835-cluster
+   
+   # Verify cluster is running
+   kubectl cluster-info
+   kubectl get nodes
+   ```
+
+6. **Create namespaces:**
+5. **Create namespaces:**
+   ```bash
+   kubectl create namespace web
+   kubectl create namespace db
+   ```
+
+7. **Create ECR secrets:**
+6. **Create ECR secrets:**
+   ```bash
+   # Login to ECR
+   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
+   
+   # Create secrets for both namespaces
+   kubectl create secret docker-registry regcred \
+     --docker-server=<ECR_REPO_URI> \
+     --docker-username=AWS \
+     --docker-password=$(aws ecr get-login-password --region us-east-1) \
+     --namespace=web
+   
+   kubectl create secret docker-registry regcred \
+     --docker-server=<ECR_REPO_URI> \
+     --docker-username=AWS \
+     --docker-password=$(aws ecr get-login-password --region us-east-1) \
+     --namespace=db
+   ```
+
+### Step 5: Deploy Applications to Kubernetes
 
 1. **Copy manifests to EC2 instance (from your local machine):**
    ```bash
@@ -144,7 +273,7 @@ This process is fully automated. You only need to ensure your code is pushed to 
    kubectl get services -n db
    ```
 
-### Step 5: Test the Application
+### Step 6: Test the Application
 
 1. **Port forward to test locally:**
    ```bash
@@ -160,7 +289,7 @@ This process is fully automated. You only need to ensure your code is pushed to 
    curl http://<EC2_PUBLIC_IP>:30000
    ```
 
-### Step 6: Deploy ReplicaSets and Deployments
+### Step 7: Deploy ReplicaSets and Deployments
 
 1. **Deploy ReplicaSets:**
    ```bash
@@ -182,7 +311,7 @@ This process is fully automated. You only need to ensure your code is pushed to 
    kubectl get deployments -n db
    ```
 
-### Step 7: Update Application Version
+### Step 8: Update Application Version
 
 1. **Update the image tag in deployment:**
    ```bash
