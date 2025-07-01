@@ -117,75 +117,65 @@ terraform --version
 
 2. **Install Docker on EC2 (if not already installed):**
    ```bash
-   # Update system
    sudo yum update -y
-   
-   # Install Docker
    sudo yum install -y docker
    sudo systemctl start docker
    sudo systemctl enable docker
    sudo usermod -a -G docker ec2-user
-   
    # Log out and back in for group changes to take effect
    exit
    ```
-   
    **Reconnect to EC2:**
    ```bash
    ssh -i ~/.ssh/clo835-key ec2-user@<EC2_PUBLIC_IP>
    ```
 
-3. **Clone the repository on EC2:**
+3. **Clone the repository on EC2 (if not already cloned):**
    ```bash
    git clone https://github.com/HamzaHassanIrshad/clo835_summer2025_assignment1.git
    cd clo835_summer2025_assignment1
    ```
 
+4. **Copy `mysql.sql` to the EC2 instance (from your local machine):**
+   ```bash
+   scp -i ~/.ssh/clo835-key mysql.sql ec2-user@<EC2_PUBLIC_IP>:~/
+   ```
+
 5. **Get ECR login token:**
-4. **Get ECR login token:**
    ```bash
    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
    ```
-   > **Note:** Do not append `/webapp` or `/mysql` at the end of the ECR URI. Use the repository URI exactly as provided by AWS ECR. This format is confirmed to work.
+   > **Note:** Do not append `/webapp` or `/mysql` at the end of the ECR URI. Use the repository URI exactly as provided by AWS ECR.
 
 6. **Build application image:**
-5. **Build application image:**
    ```bash
    docker build -t <ECR_REPO_URI>:latest .
    ```
 
 7. **Build database image:**
-6. **Build database image:**
    ```bash
    docker build -t <ECR_REPO_URI>:latest -f Dockerfile_mysql .
    ```
 
 8. **Push images to ECR:**
-7. **Push images to ECR:**
    ```bash
    docker push <ECR_REPO_URI>:latest
-   docker push <ECR_REPO_URI>:latest
+   # Repeat for both images if using separate repos/tags
    ```
 
 **Note:** The Dockerfile automatically installs all Python dependencies from `requirements.txt` during the image build process, so no manual installation is required.
 
 ### Step 4: Install Kubernetes Tools on EC2 Instance
 
-1. **SSH into the instance (if not already connected):**
-   ```bash
-   ssh -i ~/.ssh/clo835-key ec2-user@<EC2_PUBLIC_IP>
-   ```
-
-2. **Install kubectl:**
+1. **Install kubectl:**
    ```bash
    curl -LO https://dl.k8s.io/release/v1.30.1/bin/linux/amd64/kubectl
-   curl -LO "https://dl.k8s.io/release/v1.30.1/bin/linux/amd64/kubectl"
    chmod +x kubectl
    sudo mv kubectl /usr/local/bin/kubectl
    kubectl version --client
    ```
 
-3. **Install kind:**
+2. **Install kind:**
    ```bash
    curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.29.0/kind-linux-amd64
    chmod +x ./kind
@@ -193,10 +183,8 @@ terraform --version
    kind version
    ```
 
-5. **Create kind cluster:**
-4. **Create kind cluster:**
+3. **Create kind cluster:**
    ```bash
-   # Create kind cluster configuration
    cat > kind-config.yaml << 'EOF'
    kind: Cluster
    apiVersion: kind.x-k8s.io/v1alpha4
@@ -207,38 +195,33 @@ terraform --version
        hostPort: 30000
        protocol: TCP
    EOF
-   
-   # Create kind cluster
+
    kind create cluster --name clo835-cluster --config kind-config.yaml
-   
-   # Configure kubectl
    kind export kubeconfig --name clo835-cluster
-   
-   # Verify cluster is running
    kubectl cluster-info
    kubectl get nodes
    ```
 
-6. **Create namespaces:**
-5. **Create namespaces:**
+4. **Create namespaces:**
    ```bash
    kubectl create namespace web
    kubectl create namespace db
    ```
 
-7. **Create ECR secrets:**
+5. **Create a ConfigMap for MySQL initialization:**
+   > This step makes your `mysql.sql` initialization script available to the MySQL pod in a portable, cloud-native way.
+   ```bash
+   kubectl create configmap mysql-initdb-config --from-file=mysql.sql=./mysql.sql -n db
+   ```
+
 6. **Create ECR secrets:**
    ```bash
-   # Login to ECR
-   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
-   
-   # Create secrets for both namespaces
    kubectl create secret docker-registry regcred \
      --docker-server=<ECR_REPO_URI> \
      --docker-username=AWS \
      --docker-password=$(aws ecr get-login-password --region us-east-1) \
      --namespace=web
-   
+
    kubectl create secret docker-registry regcred \
      --docker-server=<ECR_REPO_URI> \
      --docker-username=AWS \
@@ -253,11 +236,12 @@ terraform --version
    scp -i ~/.ssh/clo835-key -r k8s-manifests ec2-user@<EC2_PUBLIC_IP>:~/
    ```
 
-2. **Deploy MySQL first:**
+2. **Deploy MySQL first (expects the ConfigMap to exist):**
    ```bash
    kubectl apply -f k8s-manifests/mysql-pod.yaml
    kubectl apply -f k8s-manifests/mysql-svc.yaml
    ```
+   > The MySQL pod manifest is configured to mount the `mysql-initdb-config` ConfigMap at `/docker-entrypoint-initdb.d`, so your `mysql.sql` will be executed automatically on first startup.
 
 3. **Deploy web application:**
    ```bash
@@ -311,18 +295,79 @@ terraform --version
    kubectl get deployments -n db
    ```
 
-### Step 8: Update Application Version
+### Step 8: Update Application Version (Rolling Update)
 
-1. **Update the image tag in deployment:**
+If you want to deploy a new version of your application (for example, after making code changes), follow these steps:
+
+1. **Build a new Docker image with a new tag (e.g., <TAG>):**
+   > Use the ECR URI for your webapp repository (e.g., `<ECR_WEBAPP_REPO_URI>`)
    ```bash
-   kubectl set image deployment/web-app-deployment web-app=<ECR_REPO_APP_URI>:v2 -n web
+   docker build -t <ECR_WEBAPP_REPO_URI>:v2 .
    ```
 
-2. **Verify rolling update:**
+2. **Push the new image to ECR:**
+   > Use the ECR URI for your webapp repository (e.g., `<ECR_WEBAPP_REPO_URI>`)
+   ```bash
+   docker push <ECR_WEBAPP_REPO_URI>:v2
+   ```
+
+3. **Update the Kubernetes deployment to use the new image:**
+   ```bash
+   kubectl set image deployment/web-app-deployment web-app=<ECR_WEBAPP_REPO_URI>:v2 -n web
+   ```
+
+4. **Monitor the rollout:**
    ```bash
    kubectl rollout status deployment/web-app-deployment -n web
    kubectl get pods -n web
    ```
+
+5. **Test the application as before to confirm the new version is running.**
+
+### Step 8.1: Set the Application Color for Each Version
+
+To visually distinguish between application versions during your demo, update the `APP_COLOR` environment variable in your deployment manifest:
+
+- For the **latest** version (original):
+  - Set `APP_COLOR` to `lime` in your deployment YAML.
+- For **v2** (new version):
+  - Set `APP_COLOR` to `lightorange` in your deployment YAML.
+
+**Example snippet for your deployment manifest:**
+```yaml
+env:
+  - name: APP_COLOR
+    value: lime        # Use 'lime' for latest
+```
+For v2:
+```yaml
+env:
+  - name: APP_COLOR
+    value: lightorange # Use 'lightorange' for v2
+```
+
+**When you roll out a new version (e.g., v2), update both the image tag and the color, then apply the manifest:**
+```bash
+kubectl apply -f k8s-manifests/webapp-deployment.yaml
+```
+
+This will ensure your demo clearly shows which version is running based on the background color.
+
+---
+
+### Troubleshooting Common Issues
+
+- **ImagePullBackOff or ErrImagePull:**
+  - Make sure you have built and pushed the new image to ECR **before** updating the deployment.
+  - Double-check the image URI and tag in your `kubectl set image` command.
+  - If you accidentally set the image to an invalid value (e.g., an IP address), just re-run the correct `kubectl set image` command with the proper ECR URI and tag.
+  - If you have ECR authentication issues, recreate the `regcred` secret as described in earlier steps.
+
+- **Pods not updating:**
+  - Make sure you are updating the correct deployment and container name.
+  - Use `kubectl get pods -n <NAMESPACE>` and `kubectl describe pod <POD_NAME> -n <NAMESPACE>` to check the image actually running in each pod.
+
+---
 
 ## Assignment Requirements Checklist
 
@@ -435,13 +480,3 @@ To destroy all resources:
 cd terraform
 terraform destroy
 ```
-
-## Repository Information
-
-- **Repository:** https://github.com/HamzaHassanIrshad/clo835_summer2025_assignment1
-- **Branch:** main (use main branch for assignment 1 completion)
-- **Dev Branch:** Contains experimental changes
-
-## Support
-
-For issues or questions, please refer to the troubleshooting section or create an issue in the repository.

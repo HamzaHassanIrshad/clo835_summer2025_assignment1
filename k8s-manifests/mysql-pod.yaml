@@ -41,5 +41,12 @@ spec:
           - -ppass@1234
         initialDelaySeconds: 60
         periodSeconds: 30
+      volumeMounts:
+        - name: mysql-initdb
+          mountPath: /docker-entrypoint-initdb.d
+  volumes:
+    - name: mysql-initdb
+      configMap:
+        name: mysql-initdb-config
   imagePullSecrets:
     - name: regcred

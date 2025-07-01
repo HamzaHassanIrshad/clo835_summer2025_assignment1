@@ -29,7 +29,7 @@ spec:
             - name: DATABASE
               value: employees
             - name: APP_COLOR
-              value: blue
+              value: lime  # Use 'lime' for latest, change to 'lightorange' for v2
           ports:
             - containerPort: 8080
               name: http

@@ -34,21 +34,16 @@ table = 'employee';
 
 # Define the supported color codes
 color_codes = {
-    "red": "#e74c3c",
-    "green": "#16a085",
-    "blue": "#89CFF0",
-    "blue2": "#30336b",
-    "pink": "#f4c2c2",
-    "darkblue": "#130f40",
     "lime": "#C1FF9C",
+    "lightorange": "#FFD580",
 }
 
 
 # Create a string of supported colors
 SUPPORTED_COLORS = ",".join(color_codes.keys())
 
-# Generate a random color
-COLOR = random.choice(["red", "green", "blue", "blue2", "darkblue", "pink", "lime"])
+# Use only the color from the environment variable (or default)
+COLOR = COLOR_FROM_ENV
 
 
 @app.route("/", methods=['GET', 'POST'])
