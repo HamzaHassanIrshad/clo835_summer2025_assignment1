@@ -38,6 +38,8 @@ This project demonstrates the deployment of a containerized Flask application wi
 - Docker installed (for local development)
 - SSH key pair for EC2 access
 
+**Note:** The `requirements.txt` file contains Python dependencies (Flask, PyMySQL, etc.) that are automatically installed during the Docker image build process. No manual installation of these dependencies is required.
+
 ### Installing Terraform on Amazon Linux
 
 If you're working on an Amazon Linux EC2 instance or Cloud9 environment, install Terraform using these commands:
@@ -137,32 +139,71 @@ For Windows:
    terraform output
    ```
 
-### Step 3: Build and Push Docker Images
+### Step 3: Connect to EC2 Instance and Build/Push Docker Images
 
-1. **Get ECR login token:**
+1. **SSH into the EC2 instance:**
+   ```bash
+   ssh -i ~/.ssh/clo835-key ec2-user@<EC2_PUBLIC_IP>
+   ```
+
+2. **Install Docker on EC2 (if not already installed):**
+   ```bash
+   # Update system
+   sudo yum update -y
+   
+   # Install Docker
+   sudo yum install -y docker
+   sudo systemctl start docker
+   sudo systemctl enable docker
+   sudo usermod -a -G docker ec2-user
+   
+   # Log out and back in for group changes to take effect
+   exit
+   ```
+   
+   **Reconnect to EC2:**
+   ```bash
+   ssh -i ~/.ssh/clo835-key ec2-user@<EC2_PUBLIC_IP>
+   ```
+
+3. **Clone the repository on EC2:**
+   ```bash
+   git clone https://github.com/HamzaHassanIrshad/clo835_summer2025_assignment1.git
+   cd clo835_summer2025_assignment1
+   ```
+
+4. **Configure AWS CLI on EC2:**
+   ```bash
+   aws configure
+   # Enter your AWS Access Key ID, Secret Access Key, Default region (us-east-1), and Default output format (json)
+   ```
+
+5. **Get ECR login token:**
    ```bash
    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <ECR_REPO_URI>
    ```
 
-2. **Build application image (from root directory):**
+6. **Build application image:**
    ```bash
    docker build -t <ECR_REPO_URI>:latest .
    ```
 
-3. **Build database image (from root directory):**
+7. **Build database image:**
    ```bash
    docker build -t <ECR_REPO_URI>:latest -f Dockerfile_mysql .
    ```
 
-4. **Push images to ECR:**
+8. **Push images to ECR:**
    ```bash
    docker push <ECR_REPO_URI>:latest
    docker push <ECR_REPO_URI>:latest
    ```
 
-### Step 4: Connect to EC2 Instance and Install Required Tools
+**Note:** The Dockerfile automatically installs all Python dependencies from `requirements.txt` during the image build process, so no manual installation is required.
 
-1. **SSH into the instance:**
+### Step 4: Install Kubernetes Tools on EC2 Instance
+
+1. **SSH into the instance (if not already connected):**
    ```bash
    ssh -i ~/.ssh/clo835-key ec2-user@<EC2_PUBLIC_IP>
    ```
@@ -373,6 +414,12 @@ For Windows:
 
 ### ECR Authentication
 The Terraform configuration automatically creates ECR secrets for both namespaces, allowing the cluster to pull images from ECR.
+
+### Why EC2 Instead of Cloud9?
+- **Storage:** EC2 instances provide more storage space for building and pushing Docker images
+- **Performance:** Better performance for Docker operations compared to Cloud9
+- **Cost:** More cost-effective for resource-intensive operations
+- **Flexibility:** Full control over the environment and tools installation
 
 ## Troubleshooting
 
