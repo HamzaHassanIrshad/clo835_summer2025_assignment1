@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 from pymysql import connections
 import os
 import random
@@ -93,15 +93,20 @@ def GetEmp():
 def FetchData():
     if not db_conn:
         return "Database connection not available", 500
-        
-    emp_id = request.form['emp_id']
+
+    if request.method == 'GET':
+        return redirect(url_for('home'))  # Redirect GET requests to home
+
+    emp_id = request.form.get('emp_id')
+    if not emp_id:
+        return "Employee ID is required", 400
 
     output = {}
     select_sql = "SELECT emp_id, first_name, last_name, primary_skill, location from employee where emp_id=%s"
     cursor = db_conn.cursor()
 
     try:
-        cursor.execute(select_sql,(emp_id))
+        cursor.execute(select_sql, (emp_id,))
         result = cursor.fetchone()
         
         if result is None:

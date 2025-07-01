@@ -324,34 +324,42 @@ If you want to deploy a new version of your application (for example, after maki
 
 5. **Test the application as before to confirm the new version is running.**
 
-### Step 8.1: Set the Application Color for Each Version
+### Step 6.1: Set the Application Color for Each Version (Do this before deploying the web app)
+
+**When to do this step:**
+- Do this step **after you have built and pushed your Docker images** and before you apply your deployment manifest for the web app.
+- This ensures your deployment uses the correct color and image tag for your demo.
 
 To visually distinguish between application versions during your demo, update the `APP_COLOR` environment variable in your deployment manifest:
 
 - For the **latest** version (original):
   - Set `APP_COLOR` to `lime` in your deployment YAML.
+  - Set the image tag to `:latest`.
 - For **v2** (new version):
   - Set `APP_COLOR` to `lightorange` in your deployment YAML.
+  - Set the image tag to `:v2`.
 
 **Example snippet for your deployment manifest:**
 ```yaml
 env:
   - name: APP_COLOR
     value: lime        # Use 'lime' for latest
+image: <ECR_WEBAPP_REPO_URI>:latest
 ```
 For v2:
 ```yaml
 env:
   - name: APP_COLOR
     value: lightorange # Use 'lightorange' for v2
+image: <ECR_WEBAPP_REPO_URI>:v2
 ```
 
-**When you roll out a new version (e.g., v2), update both the image tag and the color, then apply the manifest:**
+**After making these changes, apply the manifest:**
 ```bash
 kubectl apply -f k8s-manifests/webapp-deployment.yaml
 ```
 
-This will ensure your demo clearly shows which version is running based on the background color.
+This will ensure your demo clearly shows which version is running based on the background color. Do this step right before you want to show the version/color change in your demo.
 
 ---
 
