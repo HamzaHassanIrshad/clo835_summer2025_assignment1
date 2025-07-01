@@ -295,18 +295,79 @@ terraform --version
    kubectl get deployments -n db
    ```
 
-### Step 8: Update Application Version
+### Step 8: Update Application Version (Rolling Update)
 
-1. **Update the image tag in deployment:**
+If you want to deploy a new version of your application (for example, after making code changes), follow these steps:
+
+1. **Build a new Docker image with a new tag (e.g., <TAG>):**
+   > Use the ECR URI for your webapp repository (e.g., `<ECR_WEBAPP_REPO_URI>`)
    ```bash
-   kubectl set image deployment/web-app-deployment web-app=<ECR_REPO_APP_URI>:v2 -n web
+   docker build -t <ECR_WEBAPP_REPO_URI>:v2 .
    ```
 
-2. **Verify rolling update:**
+2. **Push the new image to ECR:**
+   > Use the ECR URI for your webapp repository (e.g., `<ECR_WEBAPP_REPO_URI>`)
+   ```bash
+   docker push <ECR_WEBAPP_REPO_URI>:v2
+   ```
+
+3. **Update the Kubernetes deployment to use the new image:**
+   ```bash
+   kubectl set image deployment/web-app-deployment web-app=<ECR_WEBAPP_REPO_URI>:v2 -n web
+   ```
+
+4. **Monitor the rollout:**
    ```bash
    kubectl rollout status deployment/web-app-deployment -n web
    kubectl get pods -n web
    ```
+
+5. **Test the application as before to confirm the new version is running.**
+
+### Step 8.1: Set the Application Color for Each Version
+
+To visually distinguish between application versions during your demo, update the `APP_COLOR` environment variable in your deployment manifest:
+
+- For the **latest** version (original):
+  - Set `APP_COLOR` to `lime` in your deployment YAML.
+- For **v2** (new version):
+  - Set `APP_COLOR` to `lightorange` in your deployment YAML.
+
+**Example snippet for your deployment manifest:**
+```yaml
+env:
+  - name: APP_COLOR
+    value: lime        # Use 'lime' for latest
+```
+For v2:
+```yaml
+env:
+  - name: APP_COLOR
+    value: lightorange # Use 'lightorange' for v2
+```
+
+**When you roll out a new version (e.g., v2), update both the image tag and the color, then apply the manifest:**
+```bash
+kubectl apply -f k8s-manifests/webapp-deployment.yaml
+```
+
+This will ensure your demo clearly shows which version is running based on the background color.
+
+---
+
+### Troubleshooting Common Issues
+
+- **ImagePullBackOff or ErrImagePull:**
+  - Make sure you have built and pushed the new image to ECR **before** updating the deployment.
+  - Double-check the image URI and tag in your `kubectl set image` command.
+  - If you accidentally set the image to an invalid value (e.g., an IP address), just re-run the correct `kubectl set image` command with the proper ECR URI and tag.
+  - If you have ECR authentication issues, recreate the `regcred` secret as described in earlier steps.
+
+- **Pods not updating:**
+  - Make sure you are updating the correct deployment and container name.
+  - Use `kubectl get pods -n <NAMESPACE>` and `kubectl describe pod <POD_NAME> -n <NAMESPACE>` to check the image actually running in each pod.
+
+---
 
 ## Assignment Requirements Checklist
 
@@ -419,13 +480,3 @@ To destroy all resources:
 cd terraform
 terraform destroy
 ```
-
-## Repository Information
-
-- **Repository:** https://github.com/HamzaHassanIrshad/clo835_summer2025_assignment1
-- **Branch:** main (use main branch for assignment 1 completion)
-- **Dev Branch:** Contains experimental changes
-
-## Support
-
-For issues or questions, please refer to the troubleshooting section or create an issue in the repository.
