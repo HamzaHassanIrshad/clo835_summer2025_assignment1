@@ -139,25 +139,33 @@ For Windows:
 
 ### Step 3: Build and Push Docker Images
 
-1. **Get ECR login token:**
+1. **Get the ECR URLs first:**
    ```bash
-   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(terraform output -raw app_ecr_repository_url)
+   cd terraform
+   APP_REPO=$(terraform output -raw app_ecr_repository_url)
+   DB_REPO=$(terraform output -raw db_ecr_repository_url)
+   cd ..
    ```
 
-2. **Build application image:**
+2. **Get ECR login token:**
    ```bash
-   docker build -t $(terraform output -raw app_ecr_repository_url):latest .
+   aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $APP_REPO
    ```
 
-3. **Build database image:**
+3. **Build application image (from root directory):**
    ```bash
-   docker build -t $(terraform output -raw db_ecr_repository_url):latest -f Dockerfile_mysql .
+   docker build -t $APP_REPO:latest .
    ```
 
-4. **Push images to ECR:**
+4. **Build database image (from root directory):**
    ```bash
-   docker push $(terraform output -raw app_ecr_repository_url):latest
-   docker push $(terraform output -raw db_ecr_repository_url):latest
+   docker build -t $DB_REPO:latest -f Dockerfile_mysql .
+   ```
+
+5. **Push images to ECR:**
+   ```bash
+   docker push $APP_REPO:latest
+   docker push $DB_REPO:latest
    ```
 
 ### Step 4: Connect to EC2 Instance
