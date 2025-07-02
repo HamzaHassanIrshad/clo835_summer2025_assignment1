@@ -236,7 +236,7 @@ terraform --version
    scp -i ~/.ssh/clo835-key -r k8s-manifests ec2-user@<EC2_PUBLIC_IP>:~/
    ```
 
-2. **Deploy MySQL first (expects the ConfigMap to exist):**
+2. **Deploy MySQL first:**
    ```bash
    kubectl apply -f k8s-manifests/mysql-pod.yaml
    kubectl apply -f k8s-manifests/mysql-svc.yaml
@@ -287,7 +287,7 @@ terraform --version
    kubectl apply -f k8s-manifests/webapp-deployment.yaml
    ```
 
-3. **Verify scaling:**
+3. **Verify deployments:**
    ```bash
    kubectl get replicasets -n web
    kubectl get replicasets -n db
@@ -299,7 +299,7 @@ terraform --version
 
 If you want to deploy a new version of your application (for example, after making code changes), follow these steps:
 
-1. **Build a new Docker image with a new tag (e.g., <TAG>):**
+1. **Build a new Docker image with a new tag (e.g., v2):**
    > Use the ECR URI for your webapp repository (e.g., `<ECR_WEBAPP_REPO_URI>`)
    ```bash
    docker build -t <ECR_WEBAPP_REPO_URI>:v2 .
@@ -311,55 +311,29 @@ If you want to deploy a new version of your application (for example, after maki
    docker push <ECR_WEBAPP_REPO_URI>:v2
    ```
 
-3. **Update the Kubernetes deployment to use the new image:**
+3. **Edit the deployment manifest to update both image and color:**
    ```bash
-   kubectl set image deployment/web-app-deployment web-app=<ECR_WEBAPP_REPO_URI>:v2 -n web
+   nano k8s-manifests/webapp-deployment.yaml
+   ```
+   
+   **Change these two lines in the file:**
+   - Change `image: <ECR_WEBAPP_REPO_URI>:latest` to `image: <ECR_WEBAPP_REPO_URI>:v2`
+   - Change `value: lime` to `value: lightorange` in the APP_COLOR environment variable
+
+4. **Apply the updated deployment:**
+   ```bash
+   kubectl apply -f k8s-manifests/webapp-deployment.yaml
    ```
 
-4. **Monitor the rollout:**
+5. **Monitor the rollout:**
    ```bash
    kubectl rollout status deployment/web-app-deployment -n web
    kubectl get pods -n web
    ```
 
-5. **Test the application as before to confirm the new version is running.**
+6. **Test the application to confirm the new version is running with the new color.**
 
-### Step 6.1: Set the Application Color for Each Version (Do this before deploying the web app)
 
-**When to do this step:**
-- Do this step **after you have built and pushed your Docker images** and before you apply your deployment manifest for the web app.
-- This ensures your deployment uses the correct color and image tag for your demo.
-
-To visually distinguish between application versions during your demo, update the `APP_COLOR` environment variable in your deployment manifest:
-
-- For the **latest** version (original):
-  - Set `APP_COLOR` to `lime` in your deployment YAML.
-  - Set the image tag to `:latest`.
-- For **v2** (new version):
-  - Set `APP_COLOR` to `lightorange` in your deployment YAML.
-  - Set the image tag to `:v2`.
-
-**Example snippet for your deployment manifest:**
-```yaml
-env:
-  - name: APP_COLOR
-    value: lime        # Use 'lime' for latest
-image: <ECR_WEBAPP_REPO_URI>:latest
-```
-For v2:
-```yaml
-env:
-  - name: APP_COLOR
-    value: lightorange # Use 'lightorange' for v2
-image: <ECR_WEBAPP_REPO_URI>:v2
-```
-
-**After making these changes, apply the manifest:**
-```bash
-kubectl apply -f k8s-manifests/webapp-deployment.yaml
-```
-
-This will ensure your demo clearly shows which version is running based on the background color. Do this step right before you want to show the version/color change in your demo.
 
 ---
 
@@ -367,13 +341,25 @@ This will ensure your demo clearly shows which version is running based on the b
 
 - **ImagePullBackOff or ErrImagePull:**
   - Make sure you have built and pushed the new image to ECR **before** updating the deployment.
-  - Double-check the image URI and tag in your `kubectl set image` command.
-  - If you accidentally set the image to an invalid value (e.g., an IP address), just re-run the correct `kubectl set image` command with the proper ECR URI and tag.
+  - Double-check the image URI and tag in your deployment YAML file.
+  - If you accidentally set the image to an invalid value, edit the YAML file and reapply it.
   - If you have ECR authentication issues, recreate the `regcred` secret as described in earlier steps.
 
 - **Pods not updating:**
   - Make sure you are updating the correct deployment and container name.
   - Use `kubectl get pods -n <NAMESPACE>` and `kubectl describe pod <POD_NAME> -n <NAMESPACE>` to check the image actually running in each pod.
+
+- **Service Connection Issues:**
+  ```bash
+  kubectl get endpoints -n <namespace>
+  kubectl describe service <service-name> -n <namespace>
+  ```
+
+- **Pod Startup Issues:**
+  ```bash
+  kubectl describe pod <pod-name> -n <namespace>
+  kubectl logs <pod-name> -n <namespace>
+  ```
 
 ---
 
@@ -438,29 +424,6 @@ The Terraform configuration automatically creates ECR secrets for both namespace
 - **Cost:** More cost-effective for resource-intensive operations
 - **Flexibility:** Full control over the environment and tools installation
 
-## Troubleshooting
-
-### Common Issues
-
-1. **ECR Authentication Errors:**
-   ```bash
-   kubectl delete secret regcred -n web
-   kubectl delete secret regcred -n db
-   # Recreate secrets using the commands in the user_data script
-   ```
-
-2. **Pod Startup Issues:**
-   ```bash
-   kubectl describe pod <pod-name> -n <namespace>
-   kubectl logs <pod-name> -n <namespace>
-   ```
-
-3. **Service Connection Issues:**
-   ```bash
-   kubectl get endpoints -n <namespace>
-   kubectl describe service <service-name> -n <namespace>
-   ```
-
 ### Useful Commands
 
 ```bash
@@ -479,6 +442,11 @@ kubectl get events -n db
 # Check logs
 kubectl logs -f deployment/web-app-deployment -n web
 kubectl logs -f deployment/mysql-deployment -n db
+
+# ECR Authentication Errors
+kubectl delete secret regcred -n web
+kubectl delete secret regcred -n db
+# Recreate secrets using the commands in Step 4
 ```
 
 ## Cleanup
